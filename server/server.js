@@ -287,14 +287,28 @@ app.post("/store-data", async (req, res) => {
             let query = conn.query(sql, data, (err, results) => {
                 if (err) throw err;
                 const emailTemplate = fs.readFileSync('emailTemplate.html','utf8');
-                const mailOptions = {
+                
+                // const mailOptions = {
+                //     to:checkEmail,
+                //     subject: 'New User Registration',
+                //     text: 'Hello, '+data.first_name+' '+data.last_name+'. You have registered on our website.'
+                // }
+
+                const mailOptions= {
                     to:checkEmail,
                     subject: 'New User Registration',
-                    text: 'Hello, '+data.first_name+' '+data.last_name+'. You have registered on our website.'
+                    html: emailTemplate.replace('{{first_name}}', data.first_name).replace('{{last_name}}', data.last_name),
                 }
+
                 transporter.sendMail(mailOptions,(error,info)=>{
                     if(error){
                         console.error(error);
+
+                        // Handle specific SMTP errors
+                        if (error.code === 'EENVELOPE' || error.code === 'EMESSAGE') {
+                            return res.status(400).json({ error: "Invalid email address" });
+                        }
+                        return res.status(500).json({ error: "Error sending email" });
                     }
                     else{
                         console.log("Email Sent "+info.response);
@@ -363,7 +377,7 @@ app.delete("/delete-data", (req, res) => {
     } else {
         const sql = `SELECT file_name FROM tbl_node_users WHERE id = ?`;
         const query = conn.query(sql, [itemId], (err, result) => {
-            fileName = result[0].file_name;
+            fileName = result && result[0] ? result[0].file_name : '';
             const filePath = "public/uploads/" + fileName;
 
             const sql = `DELETE FROM tbl_node_users WHERE id = ?`;
